@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "MindMate WeChat Screenshot Analyzer",
+  "version": "1.0",
+  "description": "Captures a screenshot of a webpage, sends it to Zhipuai for analysis based on a specific prompt, and displays the formatted advice. Designed for analyzing WeChat chat screenshots.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/html2canvas.min.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  }
+}
