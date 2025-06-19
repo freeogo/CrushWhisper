@@ -6,7 +6,7 @@
 // Without a valid API key, the extension will not be able to analyze screenshots.
 // Securely manage your API key. Do not commit it to public repositories.
 // *************************************************************************************
-const ZHIPUAI_API_KEY = "YOUR_API_KEY_HERE"; // TODO: Manage this securely
+const ZHIPUAI_API_KEY = "91c3a3b6e7a14bcca20f4a131fbba2d6.i8VHgAmSWKMd3vwG"; // TODO: Manage this securely
 const ZHIPUAI_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
 chrome.runtime.onInstalled.addListener(() => {
