@@ -5,37 +5,24 @@
   <meta charset="UTF-8">
   <link rel="icon" href="images/icon16.png">
   <style>
-    body {
-      font-family: sans-serif;
-      width: 400px;
-      padding: 10px;
-      box-sizing: border-box;
-      max-height: 580px;
-      overflow-y: auto;
-      margin: 0;
-    }
-    h3 { color: #333; margin-top: 0;}
-    h4 { color: #333; }
-    .option {
-      border: 1px solid #eee;
-      padding: 10px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-      background-color: #f9f9f9;
-    }
+    body { font-family: sans-serif; width: 400px; padding: 10px; box-sizing: border-box; max-height: 580px; overflow-y: auto; margin: 0; }
+    h3, h4 { color: #333; margin-top: 0; } /* Adjusted h3 margin */
+    button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-bottom: 10px; display: block; width: 100%; }
+    button:hover { background-color: #0056b3; }
+    .option { background: #f9f9f9; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #eee; }
     .option-title { font-weight: bold; }
     .design-thinking { font-style: italic; color: #555; margin-top: 5px; }
     #loading { text-align: center; padding: 20px; }
-    #resultsContainer { white-space: pre-wrap; } /* Ensure pre-wrap is maintained */
-    hr { margin-top: 15px; margin-bottom: 15px; border: 0; border-top: 1px solid #eee; }
+    #resultsContainer { white-space: pre-wrap; display:none; } /* Initially hidden */
+    hr { margin-top: 15px; margin-bottom: 15px; border: 0; border-top: 1px solid #eee; } /* Corrected border for hr */
     ul { padding-left: 20px; margin-top: 5px; margin-bottom: 10px;}
     li { margin-bottom: 5px; }
   </style>
 </head>
 <body>
   <h3>MindMate 分析助手</h3>
-  <div id="apiKeyWarning" style="color: #d9534f; background-color: #f2dede; border: 1px solid #ebccd1; padding: 10px; border-radius: 4px; margin-bottom:10px; display:none;">API Key 未配置。请联系扩展开发者在后台脚本中设置。</div>
-  <div id="loading">正在加载分析结果...</div>
+  <button id="analyzeButton">截取并分析截图</button>
+  <div id="loading">点击上方按钮开始分析</div>
   <div id="resultsContainer"></div>
   <script src="popup.js"></script>
 </body>
