@@ -1,28 +1,29 @@
 // background.js
 
 // *************************************************************************************
-// !! IMPORTANT API KEY WARNING !!
-// You MUST replace "YOUR_API_KEY_HERE" with your actual Zhipuai API key.
-// Without a valid API key, the extension will not be able to analyze screenshots.
-// Securely manage your API key. Do not commit it to public repositories.
+// !! 重要API密钥警告 !!
+// 您必须将 "YOUR_API_KEY_HERE" 替换为您的实际智谱AI API密钥。
+// 没有有效的API密钥，扩展程序将无法分析屏幕截图。
+// 请安全地管理您的API密钥。不要将其提交到公共代码库。
 // *************************************************************************************
-const ZHIPUAI_API_KEY = "91c3a3b6e7a14bcca20f4a131fbba2d6.i8VHgAmSWKMd3vwG"; // TODO: Manage this securely
+const ZHIPUAI_API_KEY = "YOUR_API_KEY_HERE"; // TODO: 安全地管理此密钥
 const ZHIPUAI_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "analyzeScreenshot",
-    title: "Analyze WeChat Screenshot",
+    title: "Analyze WeChat Screenshot", // 上下文菜单标题可以保持英文，或者按需翻译
     contexts: ["page"]
   });
-  console.log("MindMate extension installed/updated.");
+  console.log("MindMate extension installed/updated."); // 控制台日志可以保持英文
 });
 
 // Function to call Zhipuai API
+// 调用智谱AI API的函数
 async function analyzeImageWithZhipuAI(base64ImageData) {
   if (ZHIPUAI_API_KEY === "YOUR_API_KEY_HERE") {
-    console.error("API Key not configured.");
-    return { error: "API Key not configured in the extension. Please contact the developer to set it in background.js." };
+    console.error("API Key not configured."); // 控制台日志可以保持英文
+    return { error: "API Key not configured in the extension. Please contact the developer to set it in background.js." }; // 此错误信息会显示给用户，建议保持英文或提供多语言版本
   }
 
   const prompt = `
@@ -127,7 +128,7 @@ Markdown
 `;
 
   const payload = {
-    model: "glm-4v", // Assuming glm-4v is the correct model for image analysis
+    model: "glm-4v", // 假设 glm-4v 是用于图像分析的正确模型
     messages: [
       {
         role: "user",
@@ -139,7 +140,7 @@ Markdown
           {
             type: "image_url",
             image_url: {
-              url: base64ImageData, // Directly use base64 data URI
+              url: base64ImageData, // 直接使用 base64 数据 URI
             },
           },
         ],
@@ -152,7 +153,7 @@ Markdown
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": \`Bearer ${ZHIPUAI_API_KEY}\`,
+        "Authorization": `Bearer ${ZHIPUAI_API_KEY}`,
       },
       body: JSON.stringify(payload),
     });
@@ -162,9 +163,9 @@ Markdown
       try {
         const jsonError = JSON.parse(errorDetail);
         errorDetail = jsonError.error?.message || jsonError.error?.code || jsonError.error || JSON.stringify(jsonError);
-      } catch (e) { /* Not JSON, use as text */ }
-      console.error("ZhipuAI API Error:", response.status, errorDetail);
-      return { error: \`API request failed (${response.status}): ${errorDetail}\` };
+      } catch (e) { /* 非JSON格式，直接作为文本使用 */ }
+      console.error("ZhipuAI API Error:", response.status, errorDetail); // 控制台日志可以保持英文
+      return { error: \`API request failed (${response.status}): ${errorDetail}\` }; // 此错误信息会显示给用户
     }
 
     const data = await response.json();
@@ -172,29 +173,29 @@ Markdown
     if (data.choices && data.choices.length > 0 && data.choices[0].message) {
       return { analysisResult: data.choices[0].message.content };
     } else {
-      console.error("Unexpected API response structure:", data);
-      return { error: "Unexpected API response structure from ZhipuAI." };
+      console.error("Unexpected API response structure:", data); // 控制台日志可以保持英文
+      return { error: "Unexpected API response structure from ZhipuAI." }; // 此错误信息会显示给用户
     }
   } catch (error) {
-    console.error("Error calling ZhipuAI API:", error);
-    return { error: \`Network or other error calling API: ${error.message}\` };
+    console.error("Error calling ZhipuAI API:", error); // 控制台日志可以保持英文
+    return { error: \`Network or other error calling API: ${error.message}\` }; // 此错误信息会显示给用户
   }
 }
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "analyzeScreenshot" && tab && tab.id) {
-    // Sequence of operations:
-    // 1. Clear any previous analysis data from storage.
-    // 2. Set an 'isLoading' flag in storage to notify the popup.
-    // 3. Inject html2canvas and then the content script into the active tab.
-    // 4. Send a message to the content script to capture the screenshot.
-    // 5. Receive the imageData or an error from the content script.
-    // 6. Store the imageData (for debugging or potential future use).
-    // 7. Call the ZhipuAI API with the imageData.
-    // 8. Store the API's analysisResult or an error in storage.
-    // 9. Ensure 'isLoading' flag is cleared in storage, regardless of success or failure.
+    // 操作顺序：
+    // 1. 清除存储中任何先前的分析数据。
+    // 2. 在存储中设置 'isLoading' 标志以通知弹出窗口。
+    // 3. 首先注入 html2canvas，然后将内容脚本注入活动标签页。
+    // 4. 向内容脚本发送消息以捕获屏幕截图。
+    // 5. 从内容脚本接收 imageData 或错误。
+    // 6. 存储 imageData（用于调试或未来潜在用途）。
+    // 7. 使用 imageData 调用智谱AI API。
+    // 8. 在存储中存储 API 的 analysisResult 或错误。
+    // 9. 无论成功或失败，确保清除存储中的 'isLoading' 标志。
     chrome.storage.local.set({ analysisResult: null, error: null, screenshotData: null }, async () => {
-      console.log("Previous results cleared. Starting new analysis.");
+      console.log("Previous results cleared. Starting new analysis."); // 控制台日志可以保持英文
 
       try {
         await chrome.storage.local.set({ isLoading: true });
@@ -212,59 +213,62 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         });
 
         if (!injectionResults || injectionResults.length === 0) {
-          throw new Error("Injection of scripts did not return results. Page might be protected or a chrome:// page.");
+          throw new Error("Injection of scripts did not return results. Page might be protected or a chrome:// page."); // 脚本注入未返回结果。页面可能受保护或为 chrome:// 页面。
         }
 
         const messageResponse = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(tab.id, { action: "captureScreenshot" }, (response) => {
                 if (chrome.runtime.lastError) {
-                    return reject(new Error("Msg to content script: " + chrome.runtime.lastError.message));
+                    return reject(new Error("Msg to content script: " + chrome.runtime.lastError.message)); // 发送消息到内容脚本失败
                 }
                 if (response && response.error) {
-                    return reject(new Error("Content script error: " + response.error));
+                    return reject(new Error("Content script error: " + response.error)); // 内容脚本错误
                 }
                 if (response && response.imageData) {
                     resolve(response);
                 } else {
-                    reject(new Error("No image data from content script. The page might be restricted (e.g. chrome://) or the content script failed."));
+                    reject(new Error("No image data from content script. The page might be restricted (e.g. chrome://) or the content script failed.")); // 内容脚本未返回图像数据。页面可能受限（例如chrome://页面）或内容脚本执行失败。
                 }
             });
         });
 
-        console.log("Received imageData from content script (first 100 chars):", messageResponse.imageData.substring(0,100));
+        console.log("Received imageData from content script (first 100 chars):", messageResponse.imageData.substring(0,100)); // 控制台日志可以保持英文
         await chrome.storage.local.set({ screenshotData: messageResponse.imageData });
 
         const analysis = await analyzeImageWithZhipuAI(messageResponse.imageData);
 
         if (analysis.error) {
-          console.error("API Analysis Error:", analysis.error);
+          console.error("API Analysis Error:", analysis.error); // 控制台日志可以保持英文
           await chrome.storage.local.set({ error: analysis.error });
         } else {
-          console.log("API Analysis Success:", analysis.analysisResult);
+          console.log("API Analysis Success:", analysis.analysisResult); // 控制台日志可以保持英文
           await chrome.storage.local.set({ analysisResult: analysis.analysisResult });
         }
 
       } catch (error) {
-        console.error("Error in context menu click handler:", error);
+        console.error("Error in context menu click handler:", error); // 控制台日志可以保持英文
         await chrome.storage.local.set({ error: error.message });
       } finally {
         await chrome.storage.local.set({ isLoading: false });
-        console.log("isLoading set to false");
+        console.log("isLoading set to false"); // 控制台日志可以保持英文
       }
     });
   }
 });
 
 // Combined message listener
+// 组合的消息监听器
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getApiKey") {
     // In a real extension, you might fetch this from chrome.storage.sync if set by an options page
+    // 在实际的扩展中，如果通过选项页面设置，您可能会从 chrome.storage.sync 中获取此信息
     sendResponse({ apiKey: ZHIPUAI_API_KEY });
-    return true; // Keep message channel open for async response
+    return true; // Keep message channel open for async response // 保持消息通道开放以进行异步响应
   } else if (request.action === "getApiKeyStatus") {
     sendResponse({ apiKeySet: ZHIPUAI_API_KEY !== "YOUR_API_KEY_HERE" });
-    return true; // Keep message channel open for async response
+    return true; // Keep message channel open for async response // 保持消息通道开放以进行异步响应
   }
   // Handle other messages or return false if not handling this message
+  // 处理其他消息或如果不处理此消息则返回 false
   return false;
 });
