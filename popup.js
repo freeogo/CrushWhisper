@@ -189,7 +189,7 @@ Markdown
 保持边界: 明确你的建议是基于有限的截图信息，提醒用户结合实际情况灵活应用。 指导用户如何回复
 \`;
         const payload = {
-            model: "glm-4v",
+            model: "glm-4v-flash", // <--- Changed line
             messages: [
                 {
                     role: "user",
