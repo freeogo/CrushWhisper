@@ -1,92 +1,97 @@
 // popup.js
 
 // API密钥直接存储在popup.js中
-const ZHIPUAI_API_KEY = "91c3a3b6e7a14bcca20f4a131fbba2d6.i8VHgAmSWKMd3vwG";
+const ZHIPUAI_API_KEY = "91c3a3b6e7a14bcca20f4a131fbba2d6.i8VHgAmSWKMd3vwG"; // 用户提供的密钥
 const ZHIPUAI_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+const ZHIPUAI_MODEL = "glm-4v-flash"; // 用户指定的模型
 
 document.addEventListener('DOMContentLoaded', function () {
-    const analyzeButton = document.getElementById('analyzeButton');
+    const pasteArea = document.getElementById('pasteArea');
+    const imagePreview = document.getElementById('imagePreview');
+    const pastePlaceholder = document.getElementById('pastePlaceholder');
     const loadingDiv = document.getElementById('loading');
     const resultsContainer = document.getElementById('resultsContainer');
 
-    // 初始化视图
-    loadingDiv.textContent = '点击上方按钮开始分析'; // 初始提示信息
-    resultsContainer.style.display = 'none';
-    loadingDiv.style.display = 'block';
-
-    if (!analyzeButton) {
-        console.error("Error: analyzeButton not found.");
-        loadingDiv.textContent = '错误：分析按钮未找到。';
+    if (!pasteArea || !imagePreview || !pastePlaceholder || !loadingDiv || !resultsContainer) {
+        console.error("UI elements not found. Check popup.html IDs.");
+        if(loadingDiv) loadingDiv.textContent = '错误：UI元素初始化失败。';
+        if(loadingDiv) loadingDiv.style.display = 'block';
         return;
     }
 
-    analyzeButton.addEventListener('click', async function () {
-        loadingDiv.textContent = '正在准备截图...';
-        resultsContainer.style.display = 'none';
-        loadingDiv.style.display = 'block';
+    // Set initial state
+    loadingDiv.style.display = 'none';
+    resultsContainer.style.display = 'none';
+    imagePreview.style.display = 'none';
+    pastePlaceholder.style.display = 'flex'; // Assuming placeholder is a flex container for icon and text
 
-        let currentTab;
-        try {
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tabs || tabs.length === 0) {
-                throw new Error("无法获取活动标签页。");
+    pasteArea.addEventListener('click', () => {
+        // Encourage pasting, perhaps try to read from clipboard if permission allows (usually not directly for images on click)
+        // For now, click just serves to focus or as a hint. Main action is 'paste'.
+        // You could also trigger a file input if you wanted to offer "click to upload"
+        // navigator.clipboard.read().then(items => ...); // Requires specific permissions and user interaction context
+        pastePlaceholder.textContent = '请按 Ctrl+V 或右键选择“粘贴”来贴入图片。';
+    });
+
+    pasteArea.addEventListener('paste', async function (event) {
+        event.preventDefault(); // 阻止默认的粘贴行为 (比如粘贴文本到div)
+        loadingDiv.textContent = '正在处理粘贴的图片...';
+        loadingDiv.style.display = 'block';
+        resultsContainer.style.display = 'none';
+        imagePreview.style.display = 'none';
+        pastePlaceholder.style.display = 'flex'; // Reset placeholder visibility
+
+        const items = (event.clipboardData || event.originalEvent.clipboardData)?.items;
+        let imageFile = null;
+
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    imageFile = items[i].getAsFile();
+                    break;
+                }
             }
-            currentTab = tabs[0];
-            if (!currentTab || !currentTab.id) {
-                throw new Error("活动标签页ID无效。");
-            }
-        } catch (error) {
-            console.error("获取标签页错误:", error);
-            renderError("获取活动标签页失败: " + error.message);
-            return;
         }
 
-        try {
-            // 1. 注入脚本 (html2canvas 和 content.js)
-            loadingDiv.textContent = '正在注入截图脚本...';
-            await chrome.scripting.executeScript({
-                target: { tabId: currentTab.id },
-                files: ["lib/html2canvas.min.js", "content.js"]
-            });
+        if (imageFile) {
+            try {
+                const base64ImageData = await convertFileToBase64(imageFile);
 
-            // 2. 发送消息到 content.js 请求截图
-            loadingDiv.textContent = '正在捕获截图...';
-            const response = await chrome.tabs.sendMessage(currentTab.id, { action: "captureScreenshot" });
+                imagePreview.src = base64ImageData;
+                imagePreview.style.display = 'block';
+                pastePlaceholder.style.display = 'none'; // Hide placeholder text
+                loadingDiv.textContent = '图片已粘贴，正在调用AI分析...';
 
-            if (chrome.runtime.lastError) {
-                throw new Error("与内容脚本通信失败: " + chrome.runtime.lastError.message);
+                const analysisResult = await analyzeImageWithZhipuAI(base64ImageData);
+
+                if (analysisResult.error) {
+                    throw new Error("AI分析错误: " + analysisResult.error);
+                }
+                renderSuccess(analysisResult.analysisResult);
+
+            } catch (error) {
+                console.error("处理粘贴图片或分析时出错:", error);
+                renderError(error.message);
+                imagePreview.style.display = 'none'; // Hide preview on error
+                pastePlaceholder.style.display = 'flex';
             }
-            if (response && response.error) {
-                throw new Error("内容脚本截图错误: " + response.error);
-            }
-            if (!response || !response.imageData) {
-                throw new Error("未能从内容脚本获取图像数据。");
-            }
-
-            const imageData = response.imageData;
-            console.log("从内容脚本接收到图像数据 (前100字符):", imageData.substring(0, 100));
-            loadingDiv.textContent = '截图成功，正在调用AI分析...';
-
-            // 3. 调用智谱AI API
-            const analysisResult = await analyzeImageWithZhipuAI(imageData);
-
-            if (analysisResult.error) {
-                throw new Error("AI分析错误: " + analysisResult.error);
-            }
-
-            renderSuccess(analysisResult.analysisResult);
-
-        } catch (error) {
-            console.error("分析过程中发生错误:", error);
-            renderError(error.message);
+        } else {
+            renderError('未能从剪贴板获取图片。请确保您粘贴的是图片。');
         }
     });
 
+    function convertFileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result); // reader.result contains the base64 string
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(file); // Reads the file as a data URL (base64)
+        });
+    }
+
     async function analyzeImageWithZhipuAI(base64ImageData) {
-        if (ZHIPUAI_API_KEY === "YOUR_API_KEY_HERE" || !ZHIPUAI_API_KEY) { // 第二个判断是为了防止意外情况
-            console.error("API密钥未配置。");
-            return { error: "API密钥未在此扩展中配置。" };
-        }
+        // (The ZHIPUAI_API_KEY and ZHIPUAI_API_URL are defined at the top of the script)
+        // (ZHIPUAI_MODEL is also defined at the top)
 
         const prompt = `
 # 角色(Role)
@@ -188,8 +193,9 @@ Markdown
 
 保持边界: 明确你的建议是基于有限的截图信息，提醒用户结合实际情况灵活应用。 指导用户如何回复
 \`;
+
         const payload = {
-            model: "glm-4v-flash", // <--- Changed line
+            model: ZHIPUAI_MODEL, // Use the model defined at the top
             messages: [
                 {
                     role: "user",
@@ -237,88 +243,91 @@ Markdown
         loadingDiv.style.display = 'none';
         resultsContainer.style.display = 'block';
         resultsContainer.innerHTML = \`<p style="color: red; font-weight: bold;">发生错误:</p><p style="color: red; white-space: pre-wrap;">${errorMessage}</p>\`;
+        imagePreview.style.display = 'none'; // Hide preview on error
+        pastePlaceholder.style.display = 'flex'; // Show placeholder again
     }
 
     function renderSuccess(markdownResult) {
         loadingDiv.style.display = 'none';
         resultsContainer.style.display = 'block';
         resultsContainer.innerHTML = parseMarkdownToHtml(markdownResult);
+        // Keep image preview visible with results
     }
 
     function parseMarkdownToHtml(markdown) {
-        if (!markdown) return "";
+        // This function attempts to parse the specific Markdown structure from ZhipuAI
+        if (!markdown) return "<p>未收到分析结果。</p>";
         let html = markdown;
 
         // ### 【(.*?)】 -> <h3>$1</h3>
         html = html.replace(/###\s*【(.*?)】/g, '<h3>$1</h3>');
 
-        // #### 选项(?:一|二|三|四|五)：(.*?)(?:\n|$) -> <h4>选项N：$1</h4>
-        // 更灵活地匹配选项标题
-        html = html.replace(/####\s*(选项(?:一|二|三|四|五|六|七|八|九|十)|[^\n]*?)：?\s*([\s\S]*?)(?=\n####|\n###|\n---|\n> 回复内容：|$)/g, (match, title, content) => {
-          //  return \`<h4>${title.trim()}</h4>\`
-          // For content following "回复内容："
-          let replyContent = content.match(/>\s*回复内容：\s*“([\s\S]*?)”/);
-          let designThinking = content.match(/设计思路：([\s\S]*?)(?=\n####|\n###|\n---|适合的用户：|$)/);
-          let suitableUser = content.match(/适合的用户：([\s\S]*?)(?=\n####|\n###|\n---|$)/);
+        // Process sections like "回复选项" which contain multiple sub-options
+        // This regex tries to capture each option block
+        html = html.replace(/(####\s*(选项(?:一|二|三|四|五|六|七|八|九|十)|[^\n]*?)：?\s*[\s\S]*?)(?=\n####|\n### 【后续建议与提醒】|\n---|$)/g, (optionBlock) => {
+            let optionHtml = '<div class="option">';
 
-          let optionHtml = \`<h4>${title.trim()}</h4>\`;
-          if(replyContent && replyContent[1]) {
-            optionHtml += \`<p><strong>回复内容：</strong>“${replyContent[1].trim()}”</p>\`;
-          }
-          if(designThinking && designThinking[1]) {
-            optionHtml += \`<strong>设计思路：</strong><ul>${designThinking[1].trim().split('\n').map(item => item.replace(/^\s*\*\s*/, '').trim() ? \`<li>${item.replace(/^\s*\*\s*/, '').trim()}</li>\` : '').join('')}</ul>\`;
-          }
-          if(suitableUser && suitableUser[1]) {
-            optionHtml += \`<p><strong>适合的用户：</strong>${suitableUser[1].trim()}</p>\`;
-          }
-          return optionHtml;
-        });
+            // #### 选项标题
+            const titleMatch = optionBlock.match(/####\s*(选项(?:一|二|三|四|五|六|七|八|九|十)|[^\n]*?)：?/);
+            if (titleMatch && titleMatch[1]) {
+                optionHtml += \`<h4>${titleMatch[1].trim()}</h4>\`;
+            }
 
-        // > (Blockquotes)
-        html = html.replace(/^>\s*(.*)/gm, '<p><em>$1</em></p>');
+            // > 回复内容：“...”
+            const replyMatch = optionBlock.match(/>\s*回复内容：\s*“([\s\S]*?)”/);
+            if (replyMatch && replyMatch[1]) {
+                optionHtml += \`<p><strong>回复内容：</strong>“${replyMatch[1].trim()}”</p>\`;
+            }
 
-
-        // Specific handling for 设计思路 and 后续建议 to ensure all list items are caught
-        const processListSection = (sectionTitle, regexFinder, output) => {
-            const match = regexFinder.exec(output);
-            if (match && match[1]) {
-                const listItems = match[1].trim().split('\n')
+            // 设计思路：
+            // * item 1
+            // * item 2
+            const designMatch = optionBlock.match(/设计思路：\s*([\s\S]*?)(?=\n####|\n###|\n---|\n>\s*适合的用户：|$)/);
+            if (designMatch && designMatch[1]) {
+                const listItems = designMatch[1].trim().split('\n')
                     .map(item => item.replace(/^\s*\*\s*/, '').trim())
                     .filter(item => item)
                     .map(item => \`<li>${item}</li>\`).join('');
                 if (listItems) {
-                    return output.replace(match[0], \`<h3>${sectionTitle}</h3><ul>${listItems}</ul>\`);
+                    optionHtml += \`<strong>设计思路：</strong><ul>${listItems}</ul>\`;
                 }
             }
-            return output;
-        };
 
-        // This specific replacement for "回复选项" sections needs careful crafting
-        // The current complex regex for options handles title, content, design, and user.
-        // Let's simplify the generic list processing.
+            // > 适合的用户：...
+            const suitableUserMatch = optionBlock.match(/>\s*适合的用户：([\s\S]*?)(?=\n####|\n###|\n---|$)/);
+            if (suitableUserMatch && suitableUserMatch[1]) {
+                optionHtml += \`<p><strong>适合的用户：</strong>${suitableUserMatch[1].trim()}</p>\`;
+            }
 
-        // General list processing for "后续建议与提醒" (assuming it's under a h3)
-        html = html.replace(/<h3>后续建议与提醒<\/h3>\s*([\s\S]*?)(?=<h[34]>|$)/g, (match, content) => {
+            optionHtml += '</div>';
+            return optionHtml;
+        });
+
+        // --- to <hr> (if any are outside options and not handled)
+        html = html.replace(/^---$\n?/gm, '<hr class="separator">');
+
+
+        // ### 【后续建议与提醒】
+        // * item 1
+        // * item 2
+        // This needs to be handled carefully if it's outside the option blocks
+        html = html.replace(/(<h3>后续建议与提醒<\/h3>)([\s\S]*?)(?=<div class="option">|<hr class="separator">|$)/g, (match, header, content) => {
             const listItems = content.trim().split('\n')
                 .map(item => item.replace(/^\s*\*\s*/, '').trim())
                 .filter(item => item)
                 .map(item => \`<li>${item}</li>\`).join('');
-            return \`<h3>后续建议与提醒</h3><ul>${listItems}</ul>\`;
+            return header + \`<ul>${listItems}</ul>\`;
         });
 
-
-        // Wrap options in a div - this needs to be more robust
-        // The challenge is that the option content itself is now being generated by the complex regex above.
-        // So, we need to ensure that the output of that regex is then wrapped.
-        // A simpler way might be to ensure the complex regex itself adds the wrapper.
-        // Let's try modifying the options regex to output the wrapper:
-         html = html.replace(/(<h4>.*?<p><strong>适合的用户：.*?<\/p>)/gs, '<div class="option">$1</div>');
+        // > (Blockquotes for情景分析, 核心目标)
+        html = html.replace(/^>\s*(.*)/gm, '<p class="quote"><em>$1</em></p>');
 
 
-        // --- to <hr>
-        html = html.replace(/^---$\n?/gm, '<hr>');
+        // Clean up any remaining --- that might be part of an unexpected structure
+        html = html.replace(/---/g, '<hr class="separator-fallback">');
 
 
         return html;
     }
+
 });
